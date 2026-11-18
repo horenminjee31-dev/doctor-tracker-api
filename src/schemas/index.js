@@ -33,6 +33,12 @@ export const doctorCreateSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email").max(160),
 });
 
+export const doctorUpdateSchema = doctorCreateSchema
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "Provide at least one field to update",
+  });
+
 export const doctorsQuerySchema = z.object({
   ...pageQuery,
   specialization: z.enum(SPECIALIZATIONS).optional(),

@@ -80,6 +80,48 @@ export const createDoctor = asyncHandler(async (req, res) => {
   });
 });
 
+export const updateDoctor = asyncHandler(async (req, res) => {
+  const { id } = req.valid.params;
+  const doctor = await Doctor.findByIdAndUpdate(id, req.body, {
+    new: true,
+    runValidators: true,
+  }).lean();
+
+  if (!doctor) throw ApiError.notFound("Doctor not found");
+
+  const [stats] = await Patient.aggregate([
+    { $match: { doctor: doctor._id } },
+    {
+      $group: {
+        _id: null,
+        patientCount: { $sum: 1 },
+        lastVisitAt: { $max: "$visitDate" },
+      },
+    },
+  ]);
+
+  res.json({
+    data: serializeDoctor(doctor, {
+      patientCount: stats?.patientCount ?? 0,
+      lastVisitAt: stats?.lastVisitAt ?? null,
+    }),
+  });
+});
+
+export const deleteDoctor = asyncHandler(async (req, res) => {
+  const { id } = req.valid.params;
+  const patientCount = await Patient.countDocuments({ doctor: id });
+  if (patientCount > 0) {
+    throw ApiError.conflict(
+      `Cannot delete this doctor because ${patientCount} patient${patientCount === 1 ? "" : "s"} are assigned to them`
+    );
+  }
+
+  const doctor = await Doctor.findByIdAndDelete(id).lean();
+  if (!doctor) throw ApiError.notFound("Doctor not found");
+  res.status(204).end();
+});
+
 export const getDoctor = asyncHandler(async (req, res) => {
   const { id } = req.valid.params;
 

@@ -122,6 +122,39 @@ async function main() {
   const doctorId = created.body.data.id ?? created.body.data._id;
   const secondId = second.body.data.id ?? second.body.data._id;
 
+  const doctorUpdated = await request(`/doctors/${doctorId}`, {
+    method: "PATCH",
+    cookie,
+    body: { hospital: "Updated Smoke Hospital" },
+  });
+  check(
+    "updates a doctor",
+    doctorUpdated.status === 200 &&
+      doctorUpdated.body.data.hospital === "Updated Smoke Hospital"
+  );
+
+  const emptyDoctor = await request("/doctors", {
+    method: "POST",
+    cookie,
+    body: {
+      name: "Dr. Delete Me",
+      specialization: "ENT",
+      hospital: "Temporary Clinic",
+      phone: "+880 1700 000003",
+      email: "delete@doctortracker.dev",
+    },
+  });
+  const emptyDoctorId = emptyDoctor.body.data.id ?? emptyDoctor.body.data._id;
+
+  const deletedEmptyDoctor = await request(`/doctors/${emptyDoctorId}`, {
+    method: "DELETE",
+    cookie,
+  });
+  check(
+    "deletes an empty doctor",
+    deletedEmptyDoctor.status === 204
+  );
+
   const search = await request("/doctors?q=alpha&specialization=Neurology&page=1&limit=1", { cookie });
   check(
     "search + filter + pagination return the right slice",
@@ -159,6 +192,15 @@ async function main() {
     patientResponse.status === 201 && patientResponse.body.data.doctor.id === doctorId
   );
   const patientId = patientResponse.body.data.id ?? patientResponse.body.data._id;
+
+  const blockedDoctorDelete = await request(`/doctors/${doctorId}`, {
+    method: "DELETE",
+    cookie,
+  });
+  check(
+    "blocks deleting a doctor with assigned patients",
+    blockedDoctorDelete.status === 409
+  );
 
   const nested = await request(`/doctors/${doctorId}/patients?q=patient&limit=5`, { cookie });
   check("lists patients for a doctor", nested.status === 200 && nested.body.meta.total === 1);
